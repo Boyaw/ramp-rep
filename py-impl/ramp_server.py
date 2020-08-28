@@ -15,9 +15,12 @@ class Partition:
         self.lwwLock = Lock()
 
     def prepare(self, key, value, timestamp):
+        # value here is DataItem
         self.versions[key][timestamp] = value
 
     def commit(self, key, timestamp):
+        # make sure that there is no reading while committing 
+        # this is different from mutual locking, becuase it does not block the threading on other servers
         self.lwwLock.acquire()
         if self.lastCommit[key] < timestamp:
             self.lastCommit[key] = timestamp

@@ -15,14 +15,18 @@ class Client:
         self.partitions = partitions
         self.algorithm = algorithm
 
+    # Map a key to a partition object
     def key_to_partition(self, key):
+        # return the partition object corresponding to the key
         return self.partitions[hash(key) % len(self.partitions)]
 
     def next_timestamp(self):
         self.sequence_number += 1
+        # TODO 1 why does it use shift operation here? Why cannot we use sequence number here?
         return self.sequence_number << 10 + self.id        
 
     def put_all(self, kvps):
+        # kvps is a dictionary
         timestamp = self.next_timestamp()
 
         txn_keys = None
@@ -34,6 +38,9 @@ class Client:
             bloom_filter = BloomFilter(BLOOM_FILTER_SIZE, BLOOM_FILTER_HASHES)
             bloom_filter.list_to_bloom(kvps.keys())
             
+        # start of 2pc
+        # prepare phase: 2-dimention-dictionary, key and timesptamp are references
+        # DataItem is the value
         for key in kvps:
             self.key_to_partition(key).prepare(key,
                                                DataItem(kvps[key],
@@ -42,26 +49,31 @@ class Client:
                                                         bloom_filter),
                                                timestamp)
 
+        # after all parts are prepared, it starts to commit
         for key in kvps:
             self.key_to_partition(key).commit(key, timestamp)
 
     def get_all(self, keys):
         results = self.get_all_items(keys)
 
+        # metadata is removed because we only take the value here
         # remove metadata
         for key in results:
             if results[key]:
                 results[key] = results[key].value
-
+ 
         return results
             
     def get_all_items(self, keys):
         if self.algorithm == RAMPAlgorithm.Fast:
             results = {}
+            # get the latest committed value
             for key in keys:
                 results[key] = self.key_to_partition(key).getRAMPFast(key, None)
 
+            # for each value in the result, check all the keys corresponds to the result, get the latest timestamp 
             vlatest = defaultdict(lambda: -1)
+            # find out the latest timestamp for all got values
             for value in results.values():
                 if value == None:
                     continue
@@ -69,7 +81,9 @@ class Client:
                     if vlatest[tx_key] < value.timestamp:
                         vlatest[tx_key] = value.timestamp
 
+            # the second round of reading for the latest version
             for key in keys:
+                # all the keys in this transaction must be in vlastest
                 if key in vlatest and (results[key] == None or
                                        results[key].timestamp < vlatest[key]):
                     results[key] = self.key_to_partition(key).getRAMPFast(key, vlatest[key])
