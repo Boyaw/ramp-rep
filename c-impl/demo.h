@@ -8,6 +8,8 @@
 #include <thread>
 #include <functional> //for std::function
 #include <algorithm> 
+#include <string>
+#include <iterator>
 
 
 class DataItem{

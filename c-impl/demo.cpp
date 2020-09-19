@@ -1,5 +1,5 @@
 
-#include <demo.h>
+#include "demo.h"
 using namespace std;
 
 // DataDict is a map from [key, timestamp] to DataItem
@@ -29,13 +29,14 @@ class Partition{
     }; 
 
     void commit(int key, int timestamp){
-        // TODO add lock here
+        // Question1: add lock here
         if(lastcommit[key] < timestamp){
             lastcommit[key] = timestamp; 
         }; 
     };
 
-    DataItem getRAMPFast(int key, int ts_required){ //TODO ts_required type might be wrong
+    DataItem getRAMPFast(int key, int ts_required){ 
+        // ts_required is initialized as 0
         if(ts_required == 0){
             return versions[std::make_pair(key, lastcommit[key])]; 
         }
@@ -53,7 +54,6 @@ class Client{
     public: 
         int id; 
         int sequence_number = 0; 
-        // TODO define Partitions type
         vector <Partition> partitions; 
         int algorithm; 
         Client(int a, vector <Partition> b, int c){
@@ -68,7 +68,7 @@ class Client{
         };
 
         int next_timestamp(){
-            // sequence number why using shift
+            // Question2: sequence number why using shift
             sequence_number += 1; 
             return sequence_number; 
         }; 
@@ -102,10 +102,10 @@ class Client{
                     results.insert({ele,key_to_partition(ele).getRAMPFast(ele, 0)}); 
                 }
 
-                // Do I need unordered map here?
+                // TODO Do I need unordered map here?
                 std::map<int,int> vlatest = {};
                 for(std::map<int, DataItem>::iterator i = results.begin(); i != results.end(); ++i){
-                    // is it possiblt to have value = none? 
+                    // TODO is it possiblt to have value = none? 
                     for(int j : i->second.txn_keys){
                         if(vlatest[j] < i->second.timestamp){
                             vlatest[j] = i->second.timestamp; 
@@ -193,12 +193,16 @@ std::string random_string( size_t length, std::function<char(void)> rand_char )
 }
 
 
-void run_client(Client c){
+void run_client(Client c, vector<int> all_keys){
     while(request_sem.read_count()){
         request_sem.wait(c.id);
         
-        //TODOnow generate some keys
-        vector <int> txn_keys; 
+        //generate some keys
+        vector<int> txn_keys; 
+        std::sample(all_keys.begin(), all_keys.end(), std::back_inserter(txn_keys),
+                TXN_LENGTH, std::mt19937{std::random_device{}()});
+
+
         double r = ((double) rand() / (RAND_MAX)); 
         if(r < READ_PROPORTION){
             c.get_all_items(txn_keys); 
@@ -231,7 +235,7 @@ int main(){
     for (int c_id=0; c_id<NUM_CLIENTS; c_id++){
         Client client(c_id, PARTITIONS, ALGORITHM); 
         string client_id = to_string(c_id); 
-        std::thread client_id (run_client, client); 
+        std::thread client_id (run_client, client, KEYS); 
     } 
 
     std::cout<<"done!"<<std::endl; 
