@@ -20,30 +20,34 @@ class RAMPAlgorithm{
 
 class Partition{
     public: 
-        DataDict versions = {}; 
-        Dict lastcommit = {}; 
+        DataDict versions={}; 
+        Dict lastcommit={}; 
+        // Bug here
+        // mutable std::mutex lastcommit_mutex;
 
-    // 2pc for writing: prepare + commit
-    void prepare(int key, DataItem value, int timestamp){
-        versions[std::make_pair(key, timestamp)] = value;
-    }; 
 
-    void commit(int key, int timestamp){
-        // Question1: add lock here
-        if(lastcommit[key] < timestamp){
-            lastcommit[key] = timestamp; 
-        }; 
-    };
+        // 2pc for writing: prepare + commit
+        void prepare(int key, DataItem value, int timestamp){
+            versions[std::make_pair(key, timestamp)] = value;
+        } 
 
-    DataItem getRAMPFast(int key, int ts_required){ 
-        // ts_required is initialized as 0
-        if(ts_required == 0){
-            return versions[std::make_pair(key, lastcommit[key])]; 
+        void commit(int key, int timestamp){
+            // add lock guard here to make sure each lastcommit succeeds for synchornization
+            // Bug here std::lock_guard<std::mutex> lock(lastcommit_mutex);
+            if(lastcommit[key] < timestamp){
+                lastcommit[key] = timestamp; 
+            } 
+        } 
+
+        DataItem getRAMPFast(int key, int ts_required){ 
+            // ts_required is initialized as 0
+            if(ts_required == 0){
+                return versions[std::make_pair(key, lastcommit[key])]; 
+            }
+            else{
+                return versions[std::make_pair(key, ts_required)]; 
+            }
         }
-        else{
-            return versions[std::make_pair(key, ts_required)]; 
-        }
-    };
 };
 
 
@@ -57,9 +61,9 @@ class Client{
         vector <Partition> partitions; 
         int algorithm; 
         Client(int a, vector <Partition> b, int c){
-            this->id = a; 
-            this->partitions = b; 
-            this->algorithm = c; 
+            id = a; 
+            partitions = b; 
+            algorithm = c; 
         }; 
 
         Partition key_to_partition(int key){
@@ -68,7 +72,7 @@ class Client{
         };
 
         int next_timestamp(){
-            // Question2: sequence number why using shift
+            // not like pyimp using shift
             sequence_number += 1; 
             return sequence_number; 
         }; 
@@ -142,7 +146,8 @@ int ALGORITHM = Ramp.Fast;
 int NUM_PARTITIONS = 5; 
 int NUM_CLIENTS = 5; 
 
-int NUM_TXNS = 1000; 
+// int NUM_TXNS = 1000; initiate with small number of transactions
+ int NUM_TXNS = 10; 
 float READ_PROPORTION = 0.5; 
 int TXN_LENGTH = 4; 
 int NUM_KEYS = 100; 
@@ -199,7 +204,7 @@ void run_client(Client c, vector<int> all_keys){
         
         //generate some keys
         vector<int> txn_keys; 
-        std::sample(all_keys.begin(), all_keys.end(), std::back_inserter(txn_keys),
+        std::experimental::sample(all_keys.begin(), all_keys.end(), std::back_inserter(txn_keys),
                 TXN_LENGTH, std::mt19937{std::random_device{}()});
 
 
@@ -232,11 +237,29 @@ void run_client(Client c, vector<int> all_keys){
 int main(){
     vector <int> KEYS = key_generator(NUM_KEYS); 
     vector <Partition> PARTITIONS = partition_generator(NUM_PARTITIONS);
+
+    std::vector<std::thread> grp;
+    Client client(0, PARTITIONS, ALGORITHM); 
+    std::thread t1(run_client, client, KEYS);  
+
+    t1.join(); 
+    std::cout<<"t1 done!"<<std::endl; 
+
+
+    /*
+
     for (int c_id=0; c_id<NUM_CLIENTS; c_id++){
         Client client(c_id, PARTITIONS, ALGORITHM); 
-        string client_id = to_string(c_id); 
-        std::thread client_id (run_client, client, KEYS); 
+        grp.push_back(std::thread(run_client, client, KEYS));  
     } 
+
+    std::cout<<"Vector succeed!"<<std::endl; 
+
+    // Join all
+    for(auto &t : grp){
+        t.join(); 
+    }
+    */
 
     std::cout<<"done!"<<std::endl; 
     return 0; 
