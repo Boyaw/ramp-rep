@@ -147,7 +147,7 @@ int NUM_PARTITIONS = 5;
 int NUM_CLIENTS = 5; 
 
 // int NUM_TXNS = 1000; initiate with small number of transactions
- int NUM_TXNS = 10; 
+int NUM_TXNS = 10; 
 float READ_PROPORTION = 0.5; 
 int TXN_LENGTH = 4; 
 int NUM_KEYS = 100; 
@@ -199,7 +199,9 @@ std::string random_string( size_t length, std::function<char(void)> rand_char )
 
 
 void run_client(Client c, vector<int> all_keys){
+    std::cout<<"we are in run_client"<<std::endl; 
     while(request_sem.read_count()){
+        std::cout<<"we are in while loop"<<std::endl;
         request_sem.wait(c.id);
         
         //generate some keys
@@ -236,8 +238,9 @@ void run_client(Client c, vector<int> all_keys){
 
 int main(){
     vector <int> KEYS = key_generator(NUM_KEYS); 
-    vector <Partition> PARTITIONS = partition_generator(NUM_PARTITIONS);
+    vector <Partition> PARTITIONS = partition_generator(NUM_PARTITIONS); 
 
+    
     std::vector<std::thread> grp;
     Client client(0, PARTITIONS, ALGORITHM); 
     std::thread t1(run_client, client, KEYS);  
