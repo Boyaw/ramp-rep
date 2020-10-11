@@ -103,7 +103,8 @@ class Client{
 
         Partition key_to_partition(int key){
             // TODO hash function here
-            return partitions[key]; 
+            int map_par = key%size(partitions); 
+            return partitions[map_par]; 
         };
 
         int next_timestamp(){
@@ -182,7 +183,7 @@ int NUM_PARTITIONS = 5;
 int NUM_CLIENTS = 5; 
 
 // int NUM_TXNS = 1000; initiate with small number of transactions
-int NUM_TXNS = 10; 
+int NUM_TXNS = 100; 
 float READ_PROPORTION = 0.5; 
 int TXN_LENGTH = 4; 
 int NUM_KEYS = 100; 
