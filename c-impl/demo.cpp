@@ -2,14 +2,15 @@
 #include "demo.h"
 using namespace std;
 
+
+
+
 // DataDict is a map from [key, timestamp] to DataItem
 typedef std::map<std::pair<int, int>, DataItem> DataDict; 
 // Dict is a map from key to the latest commited timestamp
 typedef std::map<int, int> Dict; 
 // StrDict is a map from key to value string
 typedef std::map<int, string> StrDict; 
- 
-
 
 // Server Class
 class RAMPAlgorithm{
@@ -22,8 +23,11 @@ class Partition{
     public: 
         DataDict versions={}; 
         Dict lastcommit={}; 
-        // Bug here
-        // mutable std::mutex lastcommit_mutex;
+        sem_t p_sem; 
+        Partition(){
+            sem_init(&p_sem, 0, 1); 
+        }
+        
 
 
         // 2pc for writing: prepare + commit
@@ -33,10 +37,11 @@ class Partition{
 
         void commit(int key, int timestamp){
             // add lock guard here to make sure each lastcommit succeeds for synchornization
-            // Bug here std::lock_guard<std::mutex> lock(lastcommit_mutex);
+            sem_wait(&p_sem); 
             if(lastcommit[key] < timestamp){
                 lastcommit[key] = timestamp; 
             } 
+            sem_post(&p_sem); 
         } 
 
         DataItem getRAMPFast(int key, int ts_required){ 
@@ -68,7 +73,8 @@ class Client{
 
         Partition key_to_partition(int key){
             // TODO hash function here
-            return partitions[key]; 
+            int map_par = key%size(partitions); 
+            return partitions[map_par]; 
         };
 
         int next_timestamp(){
@@ -140,6 +146,8 @@ class Client{
 };
 
 
+
+
 //ALGORITHM = RAMPAlgorithm.Fast
 RAMPAlgorithm Ramp; 
 int ALGORITHM = Ramp.Fast; 
@@ -147,7 +155,7 @@ int NUM_PARTITIONS = 5;
 int NUM_CLIENTS = 5; 
 
 // int NUM_TXNS = 1000; initiate with small number of transactions
-int NUM_TXNS = 10; 
+int NUM_TXNS = 100; 
 float READ_PROPORTION = 0.5; 
 int TXN_LENGTH = 4; 
 int NUM_KEYS = 100; 
@@ -169,8 +177,6 @@ vector <Partition> partition_generator(int number_part){
     return PARTITIONS; 
 } 
 
-Semaphore request_sem(NUM_TXNS); 
-Semaphore finished_sem(0); 
 
 // generate random string
 typedef std::vector<char> char_array;
@@ -197,24 +203,28 @@ std::string random_string( size_t length, std::function<char(void)> rand_char )
     return str;
 }
 
+sem_t mysemaphore; 
 
 void run_client(Client c, vector<int> all_keys){
-    std::cout<<"we are in run_client"<<std::endl; 
-    while(request_sem.read_count()){
-        std::cout<<"we are in while loop"<<std::endl;
-        request_sem.wait(c.id);
+
+
+    while(!(sem_wait(&mysemaphore))){
+        std::cout<<"we are in while loop for client "+to_string(c.id)<<std::endl;
         
         //generate some keys
         vector<int> txn_keys; 
         std::experimental::sample(all_keys.begin(), all_keys.end(), std::back_inserter(txn_keys),
-                TXN_LENGTH, std::mt19937{std::random_device{}()});
+                TXN_LENGTH, std::mt19937{std::random_device{}()}); 
 
 
         double r = ((double) rand() / (RAND_MAX)); 
         if(r < READ_PROPORTION){
+            std::cout<<"this time we read "+to_string(c.id)<<std::endl; 
             c.get_all_items(txn_keys); 
+            std::cout<<"get_all_items succeed "+to_string(c.id)<<std::endl; 
         }
         else{
+            std::cout<<"this time we write "+to_string(c.id)<<std::endl; 
             StrDict kvps; 
 
             // generate random string here
@@ -228,9 +238,8 @@ void run_client(Client c, vector<int> all_keys){
                 kvps.insert({i, value}); 
             }
             c.put_all(kvps); 
-        }
-        // cid just for internl output, maybe useful for debug
-        finished_sem.notify(c.id); 
+            std::cout<<"write succeed "+to_string(c.id)<<std::endl; 
+        } 
     }
 }
 
@@ -240,14 +249,30 @@ int main(){
     vector <int> KEYS = key_generator(NUM_KEYS); 
     vector <Partition> PARTITIONS = partition_generator(NUM_PARTITIONS); 
 
-    
+    sem_init(&mysemaphore, 0, NUM_TXNS); 
     std::vector<std::thread> grp;
-    Client client(0, PARTITIONS, ALGORITHM); 
-    std::thread t1(run_client, client, KEYS);  
+    Client client1(1, PARTITIONS, ALGORITHM); 
+    std::thread t1(run_client, client1, KEYS);  
+    Client client2(2, PARTITIONS, ALGORITHM); 
+    std::thread t2(run_client, client2, KEYS);
+    Client client3(3, PARTITIONS, ALGORITHM); 
+    std::thread t3(run_client, client3, KEYS);
+    Client client4(4, PARTITIONS, ALGORITHM); 
+    std::thread t4(run_client, client4, KEYS);
+    Client client5(5, PARTITIONS, ALGORITHM); 
+    std::thread t5(run_client, client5, KEYS);
+
 
     t1.join(); 
     std::cout<<"t1 done!"<<std::endl; 
-
+    t2.join(); 
+    std::cout<<"t2 done!"<<std::endl; 
+    t3.join(); 
+    std::cout<<"t3 done!"<<std::endl; 
+    t4.join(); 
+    std::cout<<"t4 done!"<<std::endl; 
+    t5.join(); 
+    std::cout<<"t5 done!"<<std::endl; 
 
     /*
 
@@ -267,6 +292,5 @@ int main(){
     std::cout<<"done!"<<std::endl; 
     return 0; 
 }
-
 
 

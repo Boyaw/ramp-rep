@@ -234,7 +234,6 @@ std::string random_string( size_t length, std::function<char(void)> rand_char )
 sem_t mysemaphore; 
 
 void run_client(Client c, vector<int> all_keys){
-    std::cout<<"we are in run_client"<<std::endl; 
 
 
     while(!(sem_wait(&mysemaphore))){
@@ -284,12 +283,24 @@ int main(){
     std::thread t1(run_client, client1, KEYS);  
     Client client2(2, PARTITIONS, ALGORITHM); 
     std::thread t2(run_client, client2, KEYS);
+    Client client3(3, PARTITIONS, ALGORITHM); 
+    std::thread t3(run_client, client3, KEYS);
+    Client client4(4, PARTITIONS, ALGORITHM); 
+    std::thread t4(run_client, client4, KEYS);
+    Client client5(5, PARTITIONS, ALGORITHM); 
+    std::thread t5(run_client, client5, KEYS);
 
 
     t1.join(); 
     std::cout<<"t1 done!"<<std::endl; 
     t2.join(); 
     std::cout<<"t2 done!"<<std::endl; 
+    t3.join(); 
+    std::cout<<"t3 done!"<<std::endl; 
+    t4.join(); 
+    std::cout<<"t4 done!"<<std::endl; 
+    t5.join(); 
+    std::cout<<"t5 done!"<<std::endl; 
 
     /*
 
