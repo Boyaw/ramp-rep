@@ -107,18 +107,25 @@ class Client{
         StrDict get_all_items(vector <int> keys){
             std::map<int, DataItem> results;
             //0 means RAMPFast
-            if(algorithm == 0){                 
+            if(algorithm == 0){
+                                 
                 for(int ele : keys){
                     results.insert({ele,key_to_partition(ele).getRAMPFast(ele, 0)}); 
                 }
 
+                
                 // TODO Do I need unordered map here?
                 std::map<int,int> vlatest = {};
+
                 for(std::map<int, DataItem>::iterator i = results.begin(); i != results.end(); ++i){
                     // TODO is it possiblt to have value = none? 
+
                     for(int j : i->second.txn_keys){
+                         
+                        //TODO there is a bug here 
                         if(vlatest[j] < i->second.timestamp){
                             vlatest[j] = i->second.timestamp; 
+                            printf("Second reading here!"); 
                         }
                     } 
                 } 

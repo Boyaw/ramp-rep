@@ -12,3 +12,7 @@ debug: debug_ramp.cpp
 
 clean:
 	$(RM) $(TARGET) debug
+
+ycsb_wl: workload_boya.cpp 
+	$(CC) $(CFLAGS) -o ycsb_wl workload_boya.cpp
+
